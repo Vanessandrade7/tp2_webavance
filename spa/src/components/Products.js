@@ -1,26 +1,83 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProductForm from "./ProductForm";
 
 const Products = () => {
-  const [products, setProducts] = useState([
-    { id: 1, name: "Produit 1", description: "Description 1", price: 20, category: "Catégorie 1" },
-    // ... autres produits
-  ]);
+  const [products, setProducts] = useState([]);
+  const [editingProduct, setEditingProduct] = useState(null);
 
-  const addProduct = product => {
-    product.id = products.length + 1;
-    setProducts([...products, product]);
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/produits`);
+        if (!response.ok) {
+          throw new Error('Network response was not ok ' + response.statusText);
+        }
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error("Erreur lors du chargement des produits :", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  const addProduct = async product => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/produits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(product),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok ' + response.statusText);
+      }
+      const data = await response.json();
+      setProducts(prevProducts => [...prevProducts, data]);
+    } catch (error) {
+      console.error("Erreur lors de l'ajout du produit :", error);
+    }
   };
 
-  const deleteProduct = id => {
-    setProducts(products.filter(product => product.id !== id));
+  const deleteProduct = async id => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/produits/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok ' + response.statusText);
+      }
+      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+    } catch (error) {
+      console.error("Erreur lors de la suppression du produit :", error);
+    }
   };
 
-  const updateProduct = updatedProduct => {
-    const updatedProducts = products.map(product =>
-      product.id === updatedProduct.id ? updatedProduct : product
-    );
-    setProducts(updatedProducts);
+  const updateProduct = async updatedProduct => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/produits/${updatedProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedProduct),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok ' + response.statusText);
+      }
+      const data = await response.json();
+      setProducts(prevProducts =>
+        prevProducts.map(product =>
+          product.id === updatedProduct.id ? data : product
+        )
+      );
+
+      setEditingProduct(null);
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du produit :", error);
+    }
   };
 
   const handleDelete = id => {
@@ -28,15 +85,16 @@ const Products = () => {
   };
 
   const handleUpdate = product => {
-    const updatedProduct = { ...product, name: prompt("Changer le nom du produit", product.name) };
-    if (updatedProduct.name) {
-      updateProduct(updatedProduct);
-    }
+    setEditingProduct(product);
   };
 
   return (
     <div className="container mt-4">
-      <ProductForm addProduct={addProduct} />
+      <ProductForm
+        addProduct={addProduct}
+        updateProduct={updateProduct}
+        product={editingProduct}
+      />
       <table className="table mt-4">
         <thead>
           <tr>
